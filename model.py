@@ -17,6 +17,10 @@ LIST_ACTIONS: [int] = [[1, 0, 0, 0],
                        [0, 0, 1, 0],
                        [0, 0, 0, 1]]
 
+MUTATION_RATE: float = 0.0001
+MIN_RANGE_MUTATION: float = -5.0
+MAX_RANGE_MUTATION: float = 5.0
+
 
 class Model2048(Sequential):
     """
@@ -96,5 +100,75 @@ class Model2048(Sequential):
         return action
 
 
+def model_crossover(parent1_weight: list, parent2_weight: list):
+    """
+    This function make a crossover of tow models
+    :param parent1_weight: the weights of the firs model
+    :param parent2_weight:the weights of the second model
+    :return: new weight from a crossover of the two parents
+    """
+    new_weight: list = []
+
+    # get the shape of the wight
+    shapes: [tuple] = [a.shape for a in parent1_weight]
+
+    # flatten weight
+    genes1: np.array = np.concatenate([a.flatten() for a in parent1_weight])
+    genes2: np.array = np.concatenate([a.flatten() for a in parent2_weight])
+
+    # create the split coordinate
+    split = random.randint(0, len(genes1) - 1)
+
+    # make the crossover from the two parents
+    child1_genes = np.array(genes1[0:split].tolist() + genes2[split:].tolist())
+
+    # give the good shape to the weight of the child
+    index = 0
+    for shape in shapes:
+        size = np.product(shape)
+        new_weight.append(child1_genes[index: index + size].reshape(shape))
+        index += size
+
+    return new_weight
+
+
+def model_mutation(model_weight: list,
+                   mutation_rate: float =
+                   MUTATION_RATE,
+                   min_range_mutation: float = MIN_RANGE_MUTATION,
+                   max_range_mutation: float = MAX_RANGE_MUTATION):
+    """
+    This function add some mutation in the model weight
+    :param model_weight: model weight where mutation will be added
+    :param mutation_rate: 1 = 100% the probability of a mutation
+    :param min_range_mutation the minimum range of a random mutation
+    :param max_range_mutation the maximum range of a random mutation
+    :return: the model with mutation
+    """
+
+    # get the shape of the wight
+    shapes: [tuple] = [a.shape for a in model_weight]
+
+    # flatten weight
+    genes: np.array = np.concatenate([a.flatten() for a in model_weight])
+
+    # create mutation
+    for i in range(len(genes)):
+        if random.uniform(0, 1) < mutation_rate:
+            genes[i] = random.uniform(min_range_mutation, max_range_mutation)
+
+    new_weight: list = []
+
+    # give the good shape to the muted weight
+    index = 0
+    for shape in shapes:
+        size = np.product(shape)
+        new_weight.append(genes[index: index + size].reshape(shape))
+
+    return new_weight
+
+
+
 if __name__ == '__main__':
     m = Model2048()
+    m.summary()
