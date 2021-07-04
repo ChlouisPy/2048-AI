@@ -9,9 +9,14 @@ import numpy as np
 # the probability of spawning 4
 RATE_FOUR: float = 0.1
 
-# board size
+# grid size
 GRID_SIZE_X: int = 4
 GRID_SIZE_Y: int = 4
+
+# variables for model
+ALL_BLOCK_POSSIBLE_LIST: list = [2 ** i for i in range(1, 18)]  # max is 131072 (2**17) it is when the last block is 4
+ALL_BLOCK_POSSIBLE: int = len(ALL_BLOCK_POSSIBLE_LIST)
+MOVES_POSSIBLE: int = 4
 
 
 class Game2048:
@@ -151,6 +156,7 @@ class Game2048:
 
         # for every columns
         for x in range(GRID_SIZE_X):
+
             # a + b or c + d
             if grid[0][x] == grid[1][x] or grid[2][x] == grid[3][x]:
                 # c + d
@@ -169,9 +175,7 @@ class Game2048:
                     # add the value of the two blocks in the score
                     score += add
 
-
             else:
-
                 # b + c
                 if grid[1][x] == grid[2][x]:
                     add: int = grid[1][x] + grid[2][x]
