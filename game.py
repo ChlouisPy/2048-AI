@@ -18,6 +18,12 @@ ALL_BLOCK_POSSIBLE_LIST: list = [2 ** i for i in range(1, 18)]  # max is 131072 
 ALL_BLOCK_POSSIBLE: int = len(ALL_BLOCK_POSSIBLE_LIST)
 MOVES_POSSIBLE: int = 4
 
+# color for gui
+CASE_COLOR_GAME: dict = {0: "#ffffff", 2: "#eee4da", 4: "#ede0c8", 8: "#f2b179", 16: "#f59563", 32: "#f67c5f",
+                         64: "#f65e3b", 128: "#edcf72", 256: "#edcc61", 512: "#edc850", 1024: "#edc53f",
+                         2048: "#edc22e", 4096: "#eee4da", 8192: "#edc22e", 16384: "#f2b179", 32768: "#f59563",
+                         65536: "#f67c5f", }
+
 
 class Game2048:
     def __init__(self):
@@ -73,7 +79,7 @@ class Game2048:
         :return: the new grid
         """
         # rotate the grid to place it in the right direction
-        grid = np.rot90(grid, axis)
+        grid = deepcopy(np.rot90(grid, axis))
 
         grid_copy = deepcopy(grid)
 
@@ -186,19 +192,54 @@ class Game2048:
 
         return grid, score
 
+    @staticmethod
+    def check_end(grid: np.array) -> bool:
+        """
+        This function return if the game of 2048 is finished
+        :param grid: the 2048 grid
+        :return: True if the game is finished or False if the game is not finished
+        """
+        # check every possibles addition
+
+        # check if there is 0 in the grid
+        if 0 in grid.flatten().tolist():
+            return False
+
+        # column checking
+        for x in range(GRID_SIZE_X):
+            for y in range(1, GRID_SIZE_Y):
+                # if two block can be added in column
+                if grid[y][x] == grid[y - 1][x]:
+                    return False
+
+        # row checking
+        for y in range(GRID_SIZE_Y):
+            for x in range(1, GRID_SIZE_X):
+                # if two block can be added in row
+                if grid[y][x] == grid[y][x - 1]:
+                    return False
+
+        return True
+
 
 if __name__ == '__main__':
     G = Game2048()
     while True:
-        # os.system("cls")
+        if not G.check_end(G.grid):
 
-        print(G.grid)
-        m = int(input("move >>> "))
-        if m == 8:
-            G.action(G.grid, 0)
-        elif m == 6:
-            G.action(G.grid, 1)
-        elif m == 4:
-            G.action(G.grid, 3)
-        elif m == 2:
-            G.action(G.grid, 2)
+            print(G.grid)
+            m = int(input("move >>> "))
+
+            # m = random.choice([8, 6, 2, 4])
+            if m == 8:
+                G.grid = G.action(G.grid, 0)
+            elif m == 6:
+                G.grid = G.action(G.grid, 1)
+            elif m == 4:
+                G.grid = G.action(G.grid, 3)
+            elif m == 2:
+                G.grid = G.action(G.grid, 2)
+
+
+
+
