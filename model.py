@@ -21,6 +21,15 @@ MUTATION_RATE: float = 0.0001
 MIN_RANGE_MUTATION: float = -5.0
 MAX_RANGE_MUTATION: float = 5.0
 
+# parent is for the rate of parent in the new generation
+# children is for the rate of children in the new generation
+# child must have a inferior or equal to parent
+# new is the rate of new random model in the new generation
+# the sum of child, parent and new must be equal to 1
+GENERATION_PRESET: dict = {"parent": 0.4, "children": 0.4, "new": 0.2}  # this preset is a model for a new generation
+
+
+# model
 
 class Model2048(Sequential):
     """
@@ -80,13 +89,14 @@ class Model2048(Sequential):
         _w = m.get_weights()
         self.set_weights(_w)
 
-    def take_action(self, grid):
+    def take_action(self, grid, eps: float = EPS):
         """
         This function will take sometime a random action and sometime a model action
         :param grid: a sequence of indicators of length SEQUENCE_LENGTH
+        :param eps: probability of playing a random move
         :return: the action take
         """
-        if random.uniform(0, 1) < EPS:
+        if random.uniform(0, 1) < eps:
             # take random action
             action = random.choice(LIST_ACTIONS)
 
@@ -99,6 +109,8 @@ class Model2048(Sequential):
 
         return action
 
+
+# genetic algorithm
 
 def model_crossover(parent1_weight: list, parent2_weight: list):
     """
@@ -133,8 +145,7 @@ def model_crossover(parent1_weight: list, parent2_weight: list):
 
 
 def model_mutation(model_weight: list,
-                   mutation_rate: float =
-                   MUTATION_RATE,
+                   mutation_rate: float = MUTATION_RATE,
                    min_range_mutation: float = MIN_RANGE_MUTATION,
                    max_range_mutation: float = MAX_RANGE_MUTATION):
     """
@@ -167,6 +178,63 @@ def model_mutation(model_weight: list,
 
     return new_weight
 
+
+def new_generation(all_gen_weight: list,
+                   all_gen_score: [int],
+                   generation_preset: dict = None):
+    """
+    this function return a new generation from a older generation
+    :param all_gen_weight: a list that contain all model's weight (should be a list of list of array)
+                           you must get weight of all models
+    :param all_gen_score: a list that contain the score of each model (should be a list of int)
+    warning : index of all_gen_weight must correspond with index of all_gen_score
+    :param generation_preset: the presset for generation
+    :return: a new generation from a older generation
+    """
+    # set generation to default if parameter if None
+    if generation_preset is None:
+        generation_preset = GENERATION_PRESET
+
+    # sort the score from the biggest to the smalest
+    best_all_gen_score = sorted(all_gen_score, reverse=True)
+
+    # create a list that store best model
+    best_models: list = []
+
+    # select best model
+    for i in range(len(all_gen_weight) * generation_preset["parent"]):
+        # get the index of the maximum score in the list
+        index_best: int = all_gen_score.index(best_all_gen_score[i])
+
+        # add the best model to the list of best model
+        best_models.append(all_gen_weight[index_best])
+
+    # create children
+    children_models: list = []
+
+    for i in range(len(all_gen_weight) * generation_preset["children"]):
+        children_models.append(
+            model_crossover(best_models[i], best_models[i - 1])
+        )
+
+    # create mutation
+    parent_children_list: list = best_models + children_models
+
+    for i in range(len(parent_children_list)):
+        parent_children_list[i] = model_mutation(parent_children_list[i])
+
+    # add random model
+    random_models: list = []
+
+    for i in range(len(all_gen_weight) * generation_preset["new"]):
+        _temp_m = Model2048()
+        _temp_w = _temp_m.get_weights()
+        random_models.append(_temp_w)
+
+    # create the full new gen
+    new_gen: list = parent_children_list + random_models
+
+    return new_gen
 
 
 if __name__ == '__main__':
