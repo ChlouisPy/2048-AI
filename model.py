@@ -5,11 +5,13 @@ This script contains all the functions related to the model
 import tensorflow as tf
 import numpy as np
 import random
+from math import ceil
 
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Flatten, Conv2D, LeakyReLU, Dropout
 from game import MOVES_POSSIBLE, ALL_BLOCK_POSSIBLE, GRID_SIZE_X, GRID_SIZE_Y
 from tensorflow.keras.utils import to_categorical
+
 
 EPS: float = 0.4  # probability of playing a random move
 # list of all actions possible for the model
@@ -233,7 +235,7 @@ def new_generation(all_gen_weight: list,
     best_models: list = []
 
     # select best model
-    for i in range(len(all_gen_weight) * generation_preset["parent"]):
+    for i in range(ceil(len(all_gen_weight) * generation_preset["parent"])):
         # get the index of the maximum score in the list
         index_best: int = all_gen_score.index(best_all_gen_score[i])
 
@@ -243,7 +245,7 @@ def new_generation(all_gen_weight: list,
     # create children
     children_models: list = []
 
-    for i in range(len(all_gen_weight) * generation_preset["children"]):
+    for i in range(ceil(len(all_gen_weight) * generation_preset["children"])):
         children_models.append(
             model_crossover(best_models[i], best_models[i - 1])
         )
@@ -257,7 +259,7 @@ def new_generation(all_gen_weight: list,
     # add random model
     random_models: list = []
 
-    for i in range(len(all_gen_weight) * generation_preset["new"]):
+    for i in range(ceil(len(all_gen_weight) * generation_preset["new"])):
         _temp_m = Model2048()
         _temp_w = _temp_m.get_weights()
         random_models.append(_temp_w)

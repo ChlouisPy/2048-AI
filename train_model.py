@@ -10,6 +10,7 @@ import numpy as np
 import time
 import random
 from copy import deepcopy
+import os
 
 import matplotlib.pyplot as plt
 import matplotlib
@@ -20,17 +21,22 @@ import matplotlib.animation as animation
 from game import Game2048
 from game import CASE_COLOR_GAME, ALL_BLOCK_POSSIBLE, GRID_SIZE_Y, GRID_SIZE_X
 from model import Model2048
-from model import new_generation, grid_to_input
+from model import new_generation, grid_to_input, model_mutation
 
-GUI: bool = False  # if you want see your models train
+matplotlib.use('TkAgg')
+
+GUI: bool = True  # if you want see your models train
+Q_LEARNING_DURING_ENV: bool = True  # enable training during env simulation
+Q_LEARNING_AFTER: bool = True
+GENETIC_ALGORITHM: bool = True
 
 # EPOCHS: int = 10_000
-EPOCHS: int = 10
+EPOCHS: int = 10_000
 HISTORY_SIZE: int = 100_000
 
 # create gui disposition
-Y_MODEL: int = 40
-X_MODEL: int = 60
+Y_MODEL: int = 2
+X_MODEL: int = 3
 TOTAL_MODEL: int = int(Y_MODEL * X_MODEL)
 
 # color map for gui
@@ -42,6 +48,10 @@ NORM = matplotlib.colors.BoundaryNorm(FULL_BOUNDS, COLOR_MAP.N)
 # q learning
 LEARNING_RATE: float = 0.1  # alpha
 DISCOUNT_FACTOR: float = 0.99  # gamma
+
+# model gradiant tape
+MODEL_OPTIMIZER = tf.keras.optimizers.Adam()
+MODEL_LOSS = tf.keras.losses.Huber()
 
 
 # @tf.function
@@ -72,28 +82,44 @@ def environment(index) -> None:
 
         # add reward to history
         board_history_r[index].append(reward)
-        """
+
         # do simple q learning for only this model
         # get model action for future
         future_action = list_model[index].take_action(new_grid)
-        future_action = future_action[np.argmax(future_action)] # = Q(st+1, at+1)
+        future_action = future_action[np.argmax(future_action)]  # = Q(st+1, at+1)
 
         # Q(st, at) = Q(st, at) + α *(rt + Ɣ * Q(st+1, at+1) - Q(st, at))
 
         model_action[model_action_index] = model_action[model_action_index] + LEARNING_RATE * (
-                    reward + DISCOUNT_FACTOR * future_action - model_action[model_action_index])
+                reward + DISCOUNT_FACTOR * future_action - model_action[model_action_index])
 
         # train model
-
+        """
         list_model[index].fit(
             np.array([grid_to_input(list_game[index].grid)]),
             np.array([model_action]),
             verbose=0,
-            batch_size=1)
-        """
+            batch_size=1)"""
+        # train model
+        if Q_LEARNING_DURING_ENV:
+            with tf.GradientTape() as tape:
+                logits = list_model[index](
+                    np.array([grid_to_input(list_game[index].grid)], dtype=np.float32), training=True
+                )
+
+                # Compute the loss value for this minibatch.
+                loss_value = MODEL_LOSS(np.array([model_action]), logits)
+
+            grads = tape.gradient(loss_value, list_model[index].trainable_weights)
+
+            MODEL_OPTIMIZER.apply_gradients(zip(grads, list_model[index].trainable_weights))
+
         # set new environement
         list_game[index].grid = new_grid
         list_game[index].score += reward
+
+    list_score[index] = list_game[index].score
+    list_max_block[index] = max(list_game[index].grid.flatten().tolist())
 
 
 def gui() -> None:
@@ -126,7 +152,7 @@ def gui() -> None:
 
     ani = animation.FuncAnimation(fig,
                                   update_graph,
-                                  interval=10)
+                                  interval=1)
 
     window.mainloop()
 
@@ -163,8 +189,16 @@ if __name__ == '__main__':
     # for each epochs
     for epoch in range(EPOCHS):
 
-        # get time for timer
-        t = time.time()
+        t0 = time.time()
+
+        action_taken: int = 0
+
+        # reset games
+        list_game: list = [Game2048() for _ in range(TOTAL_MODEL)]
+
+        # for scores
+        list_score: [int] = [0 for _ in range(TOTAL_MODEL)]
+        list_max_block: [int] = [0 for _ in range(TOTAL_MODEL)]
 
         # create a board history
         board_history_x: list = [[] for _ in range(TOTAL_MODEL)]
@@ -178,6 +212,9 @@ if __name__ == '__main__':
 
         multi_env: list = []
 
+        # time for games
+        t1 = time.time()
+
         # start every thread for each env
         for i in range(TOTAL_MODEL):
             multi_env.append(
@@ -189,4 +226,39 @@ if __name__ == '__main__':
         for env in multi_env:
             env.join()
 
-        print(time.time() - t)
+        t1 = time.time() - t1
+
+        t2 = time.time()
+
+        # genetic algorithm
+        if GENETIC_ALGORITHM:
+
+            # get weight of all model
+            model_weight = [m.get_weights() for m in list_model]
+
+            new_gen = new_generation(model_weight, list_score)
+
+            # add mutation
+            for i in range(TOTAL_MODEL):
+                new_gen[i] = model_mutation(new_gen[i])
+
+            # load models
+            for i, model in enumerate(list_model):
+                model.set_weights(new_gen[i])
+
+        t2 = time.time() - t2
+
+        # print stats
+        print(f"----- {epoch + 1} -----")
+        print(f"Scores :")
+        print(f"\t- Average:           {round(sum(list_score) / len(list_score), 1)}")
+        print(f"\t- Maximum:           {max(list_score)}")
+        print(f"\t- Minimum:           {min(list_score)}")
+        print(f"\t- Median block:      {sorted(list_max_block)[TOTAL_MODEL // 2]}")
+        print(f"\t- Maximum block:     {max(list_max_block)}")
+        print(f"Time :")
+        print(f"\t- Total:             {round(time.time() - t0, 1)}")
+        print(f"\t- Games simulation:  {round(t1, 1)}")
+        print(f"\t- Genetic algorithm: {round(t2, 1)}")
+
+
