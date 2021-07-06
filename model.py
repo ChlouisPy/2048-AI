@@ -9,6 +9,7 @@ import random
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Flatten, Conv2D, LeakyReLU, Dropout
 from game import MOVES_POSSIBLE, ALL_BLOCK_POSSIBLE, GRID_SIZE_X, GRID_SIZE_Y
+from tensorflow.keras.utils import to_categorical
 
 EPS: float = 0.4  # probability of playing a random move
 # list of all actions possible for the model
@@ -69,6 +70,8 @@ class Model2048(Sequential):
 
         self.add(Dense(4, activation="softmax"))
 
+        self.compile(optimizer="adam", loss="huber_loss")
+
     def save_model(self, path: str) -> None:
         """
         This function save the model as a h5 file
@@ -89,6 +92,15 @@ class Model2048(Sequential):
         _w = m.get_weights()
         self.set_weights(_w)
 
+    # @tf.function
+    def model_action(self, grid):
+        """
+        This function return the input of the model
+        :param grid: a 2048 grid
+        :return: input of the model
+        """
+        return self(np.array([grid_to_input(grid)], dtype=np.float32), training=False).numpy()[0]
+
     def take_action(self, grid, eps: float = EPS):
         """
         This function will take sometime a random action and sometime a model action
@@ -102,17 +114,36 @@ class Model2048(Sequential):
 
         else:
             # let model choose a action
-            action = self.predict(np.array([grid]))[0]
-
+            action = self.model_action(grid)
+            """
             returned_list = [0, 0, 0, 0]
             returned_list[np.argmax(action)] = 1
+
+            return returned_list"""
 
         return action
 
 
+def grid_to_input(grid):
+    """
+    This function transform the grid to a model input
+    :param grid: a 2048 grid
+    :return: the input for the model
+    """
+    # transform to categorical
+    grid = to_categorical(np.log2(grid + 1) - 1, 18).tolist()
+
+    # remove 0
+    for y in range(4):
+        for x in range(4):
+            del grid[y][x][-1]
+
+    return np.array(grid)
+
+
 # genetic algorithm
 
-def model_crossover(parent1_weight: list, parent2_weight: list):
+def model_crossover(parent1_weight: list, parent2_weight: list) -> list:
     """
     This function make a crossover of tow models
     :param parent1_weight: the weights of the firs model
@@ -147,7 +178,7 @@ def model_crossover(parent1_weight: list, parent2_weight: list):
 def model_mutation(model_weight: list,
                    mutation_rate: float = MUTATION_RATE,
                    min_range_mutation: float = MIN_RANGE_MUTATION,
-                   max_range_mutation: float = MAX_RANGE_MUTATION):
+                   max_range_mutation: float = MAX_RANGE_MUTATION) -> list:
     """
     This function add some mutation in the model weight
     :param model_weight: model weight where mutation will be added
@@ -181,7 +212,7 @@ def model_mutation(model_weight: list,
 
 def new_generation(all_gen_weight: list,
                    all_gen_score: [int],
-                   generation_preset: dict = None):
+                   generation_preset: dict = None) -> list:
     """
     this function return a new generation from a older generation
     :param all_gen_weight: a list that contain all model's weight (should be a list of list of array)

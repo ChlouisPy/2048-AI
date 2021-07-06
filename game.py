@@ -21,8 +21,8 @@ MOVES_POSSIBLE: int = 4
 # color for gui
 CASE_COLOR_GAME: dict = {0: "#ffffff", 2: "#eee4da", 4: "#ede0c8", 8: "#f2b179", 16: "#f59563", 32: "#f67c5f",
                          64: "#f65e3b", 128: "#edcf72", 256: "#edcc61", 512: "#edc850", 1024: "#edc53f",
-                         2048: "#edc22e", 4096: "#eee4da", 8192: "#edc22e", 16384: "#f2b179", 32768: "#f59563",
-                         65536: "#f67c5f", }
+                         2048: "#edc22e", 4096: "#60D894", 8192: "#25BB66", 16384: "#238D52", 32768: "#71B3D6",
+                         65536: "#599FDA", 131072: "#CD00D8"}
 
 
 class Game2048:
@@ -87,7 +87,7 @@ class Game2048:
         grid = self.pack(grid)
         # 2. addition
         grid, score = self.addition(grid)
-        self.score += score
+
         # 3. pack
         grid = self.pack(grid)
         # 4.place a new block
@@ -99,7 +99,7 @@ class Game2048:
         grid = np.rot90(grid, 4 - axis)
 
         # return the grid with a new action
-        return grid
+        return grid, score
 
     @staticmethod
     def pack(grid: np.array) -> np.array:
@@ -225,21 +225,17 @@ class Game2048:
 if __name__ == '__main__':
     G = Game2048()
     while True:
-        if not G.check_end(G.grid):
+        if not G.check_end(G.grid[0]):
 
             print(G.grid)
             m = int(input("move >>> "))
 
             # m = random.choice([8, 6, 2, 4])
             if m == 8:
-                G.grid = G.action(G.grid, 0)
+                G.grid = G.action(G.grid, 0)[0]
             elif m == 6:
-                G.grid = G.action(G.grid, 1)
+                G.grid = G.action(G.grid, 1)[0]
             elif m == 4:
-                G.grid = G.action(G.grid, 3)
+                G.grid = G.action(G.grid, 3)[0]
             elif m == 2:
-                G.grid = G.action(G.grid, 2)
-
-
-
-
+                G.grid = G.action(G.grid, 2)[0]
