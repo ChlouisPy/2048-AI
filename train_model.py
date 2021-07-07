@@ -11,6 +11,7 @@ import time
 import random
 from copy import deepcopy
 import os
+from hashlib import sha512
 
 import matplotlib.pyplot as plt
 import matplotlib
@@ -26,7 +27,7 @@ from model import new_generation, grid_to_input, model_mutation
 matplotlib.use('TkAgg')
 
 GUI: bool = True  # if you want see your models train
-Q_LEARNING_DURING_ENV: bool = True  # enable training during env simulation
+Q_LEARNING_DURING_ENV: bool = False  # enable training during env simulation
 Q_LEARNING_AFTER: bool = True
 GENETIC_ALGORITHM: bool = True
 
@@ -62,9 +63,12 @@ def environment(index) -> None:
     :return: None
     """
 
+    # number of actions
+    n_action: int = 0
+
     # while the game is not finished
     while not list_game[index].check_end(list_game[index].grid):
-        t = time.time()
+        n_action += 1
         # add the actual grid to the history
         board_history_x[index].append(list_game[i].grid)
 
@@ -120,6 +124,7 @@ def environment(index) -> None:
 
     list_score[index] = list_game[index].score
     list_max_block[index] = max(list_game[index].grid.flatten().tolist())
+    list_n_action[index] = n_action
 
 
 def gui() -> None:
@@ -171,6 +176,15 @@ def update_graph(i) -> None:
             pass
 
 
+def hash_array(array: np.array) -> str:
+    """
+    This function hash a numpy array
+    :param array: a numpy array
+    :return: hashed numpy array
+    """
+    return sha512(repr(array).encode()).hexdigest()
+
+
 if __name__ == '__main__':
     # list for animated graph
     graph_list = []
@@ -186,8 +200,20 @@ if __name__ == '__main__':
         thread_window = threading.Thread(target=gui)
         thread_window.start()
 
+    # for global history of each game
+    memory_history_x: list = []
+    memory_history_y: list = []
+    memory_history_r: list = []
+
     # for each epochs
     for epoch in range(EPOCHS):
+
+        # create a board history
+        board_history_x: list = [[] for _ in range(TOTAL_MODEL)]
+        # create a move history
+        board_history_y: list = [[] for _ in range(TOTAL_MODEL)]
+        # create reward history
+        board_history_r: list = [[] for _ in range(TOTAL_MODEL)]
 
         t0 = time.time()
 
@@ -199,13 +225,7 @@ if __name__ == '__main__':
         # for scores
         list_score: [int] = [0 for _ in range(TOTAL_MODEL)]
         list_max_block: [int] = [0 for _ in range(TOTAL_MODEL)]
-
-        # create a board history
-        board_history_x: list = [[] for _ in range(TOTAL_MODEL)]
-        # create a move history
-        board_history_y: list = [[] for _ in range(TOTAL_MODEL)]
-        # create reward history
-        board_history_r: list = [[] for _ in range(TOTAL_MODEL)]
+        list_n_action: [int] = [0 for _ in range(TOTAL_MODEL)]
 
         # create score for each env
         score: list = [0 for _ in range(TOTAL_MODEL)]
@@ -221,21 +241,17 @@ if __name__ == '__main__':
                 threading.Thread(target=environment, args=(i,))
             )
             multi_env[-1].start()
-
-        # join
         for env in multi_env:
             env.join()
 
         t1 = time.time() - t1
 
+        # genetic algorithm
         t2 = time.time()
 
-        # genetic algorithm
         if GENETIC_ALGORITHM:
-
             # get weight of all model
             model_weight = [m.get_weights() for m in list_model]
-
             new_gen = new_generation(model_weight, list_score)
 
             # add mutation
@@ -248,17 +264,79 @@ if __name__ == '__main__':
 
         t2 = time.time() - t2
 
+        # global history
+        for i in range(len(board_history_x)):
+            memory_history_x.append(board_history_x[i])
+            memory_history_y.append(board_history_y[i])
+            memory_history_r.append(board_history_r[i])
+
+        # reinforce Q learning with all data
+        t3 = time.time()
+        if Q_LEARNING_AFTER:
+
+            Q: dict = {}  # q table
+
+            # create a q table with all element in memory
+
+            for i in range(len(memory_history_x)):
+                for j in range(len(memory_history_x[i]) - 1):
+
+                    if hash_array(memory_history_x[i][j]) not in Q:
+                        Q[hash_array(memory_history_x[i][j])] = memory_history_y[i][j]
+                    # do q learning il already in memory
+                    else:
+
+                        q_value_H = Q[hash_array(memory_history_x[i][j])]
+                        output_H = memory_history_y[i][j]
+                        # update q value
+
+                        future_action_H = memory_history_y[i][j][np.argmax(memory_history_y[i][j])]
+                        max_output_H = np.argmax(output_H)
+
+                        q_value_H[max_output_H] = q_value_H[max_output_H] + LEARNING_RATE * (
+                                memory_history_r[i][j] + DISCOUNT_FACTOR * future_action_H - q_value_H[max_output_H])
+
+                        # update q table
+                        Q[hash_array(memory_history_x[i][j])] = q_value_H
+
+            # train all models with new q value
+            X_TRAIN: list = []
+            Y_TRAIN: list = []
+
+            for i in range(len(memory_history_x)):
+                for j in range(len(memory_history_x[i]) - 1):
+                    X_TRAIN.append(grid_to_input(memory_history_x[i][j]))
+                    Y_TRAIN.append(Q[hash_array(memory_history_x[i][j])])
+
+            for model in list_model:
+                model.fit(np.array(X_TRAIN), np.array(Y_TRAIN), verbose=0, epochs=1, batch_size=len(X_TRAIN))
+
+
+        # reset global history if memory exeded
+        if len(memory_history_x) > HISTORY_SIZE:
+            memory_history_x: list = []
+            memory_history_y: list = []
+            memory_history_r: list = []
+
+        t3 = time.time() - t3
+
         # print stats
-        print(f"----- {epoch + 1} -----")
+        print(f"------ {epoch + 1} ------")
         print(f"Scores :")
-        print(f"\t- Average:           {round(sum(list_score) / len(list_score), 1)}")
-        print(f"\t- Maximum:           {max(list_score)}")
-        print(f"\t- Minimum:           {min(list_score)}")
-        print(f"\t- Median block:      {sorted(list_max_block)[TOTAL_MODEL // 2]}")
-        print(f"\t- Maximum block:     {max(list_max_block)}")
+        print(f"\t- Average:             {round(sum(list_score) / len(list_score), 1)}")
+        print(f"\t- Maximum:             {max(list_score)}")
+        print(f"\t- Minimum:             {min(list_score)}")
+        print(f"\t- Median block:        {sorted(list_max_block)[TOTAL_MODEL // 2]}")
+        print(f"\t- Maximum block:       {max(list_max_block)}")
         print(f"Time :")
-        print(f"\t- Total:             {round(time.time() - t0, 1)}")
-        print(f"\t- Games simulation:  {round(t1, 1)}")
-        print(f"\t- Genetic algorithm: {round(t2, 1)}")
-
-
+        print(f"\t- Total:               {round(time.time() - t0, 1)}")
+        print(f"\t- Games simulation:    {round(t1, 1)}")
+        print(f"\t- Genetic algorithm:   {round(t2, 1)}")
+        print(f"\t- Reinforce learning:  {round(t3, 1)}")
+        print("Computation:")
+        print(f"\t- Total action taken:  {sum(list_n_action)}")
+        print(f"\t- Average action:      {round(sum(list_n_action) / len(list_n_action), 2)}")
+        print(f"\t- Minimum action:      {max(list_n_action)}")
+        print(f"\t- Maximum action:      {min(list_n_action)}")
+        print(f"\t-----------------------")
+        print(f"\t Grid in memory:       {len(memory_history_x)}")

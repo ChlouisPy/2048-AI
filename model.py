@@ -45,7 +45,16 @@ class Model2048(Sequential):
         # create the model
         self.add(
             Conv2D(ALL_BLOCK_POSSIBLE * MOVES_POSSIBLE,
-                   (2, 2),
+                   (1, 2),
+                   padding="same",
+                   input_shape=(GRID_SIZE_Y, GRID_SIZE_X, ALL_BLOCK_POSSIBLE),
+                   )
+        )
+        self.add(LeakyReLU())
+
+        self.add(
+            Conv2D(ALL_BLOCK_POSSIBLE * MOVES_POSSIBLE,
+                   (2, 1),
                    padding="same",
                    input_shape=(GRID_SIZE_Y, GRID_SIZE_X, ALL_BLOCK_POSSIBLE),
                    )
@@ -54,7 +63,7 @@ class Model2048(Sequential):
 
         self.add(
             Conv2D(ALL_BLOCK_POSSIBLE,  # * MOVES_POSSIBLE
-                   (2, 2),
+                   (1, 1),
                    padding="same",
                    input_shape=(GRID_SIZE_Y, GRID_SIZE_X, ALL_BLOCK_POSSIBLE),
                    )
