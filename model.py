@@ -42,6 +42,7 @@ class Model2048(Sequential):
     def __init__(self):
         super().__init__()
 
+        """
         # create the model
         self.add(
             Conv2D(ALL_BLOCK_POSSIBLE * MOVES_POSSIBLE,
@@ -56,7 +57,6 @@ class Model2048(Sequential):
             Conv2D(ALL_BLOCK_POSSIBLE * MOVES_POSSIBLE,
                    (2, 1),
                    padding="same",
-                   input_shape=(GRID_SIZE_Y, GRID_SIZE_X, ALL_BLOCK_POSSIBLE),
                    )
         )
         self.add(LeakyReLU())
@@ -65,7 +65,84 @@ class Model2048(Sequential):
             Conv2D(ALL_BLOCK_POSSIBLE,  # * MOVES_POSSIBLE
                    (1, 1),
                    padding="same",
+                   )
+        )
+        self.add(LeakyReLU())
+
+        self.add(Flatten())
+
+        self.add(Dropout(0.2))
+
+        self.add(Dense(256))
+        self.add(LeakyReLU())
+
+        self.add(Dropout(0.2))
+
+        self.add(Dense(4, activation="softmax"))
+
+        self.compile(optimizer="adam", loss="huber_loss")
+
+        """
+        """
+        self.add(
+            Conv2D(ALL_BLOCK_POSSIBLE * MOVES_POSSIBLE,
+                   (1, 2),
+                   padding="same",
                    input_shape=(GRID_SIZE_Y, GRID_SIZE_X, ALL_BLOCK_POSSIBLE),
+                   )
+        )
+        self.add(LeakyReLU())
+
+        self.add(
+            Conv2D(ALL_BLOCK_POSSIBLE * MOVES_POSSIBLE,
+                   (2, 1),
+                   padding="same",
+                   )
+        )
+        self.add(LeakyReLU())
+
+        self.add(
+            Conv2D(ALL_BLOCK_POSSIBLE,  # * MOVES_POSSIBLE
+                   (1, 1),
+                   padding="same",
+                   )
+        )
+        self.add(LeakyReLU())
+
+        self.add(Flatten())
+
+        self.add(Dropout(0.2))
+
+        self.add(Dense(256))
+        self.add(LeakyReLU())
+
+        self.add(Dropout(0.2))
+
+        self.add(Dense(4, activation="softmax"))
+
+        self.compile(optimizer="adam", loss="huber_loss")"""
+
+        self.add(
+            Conv2D(ALL_BLOCK_POSSIBLE * MOVES_POSSIBLE,
+                   (1, 2),
+                   padding="same",
+                   input_shape=(GRID_SIZE_Y, GRID_SIZE_X, 1),
+                   )
+        )
+        self.add(LeakyReLU())
+
+        self.add(
+            Conv2D(ALL_BLOCK_POSSIBLE * MOVES_POSSIBLE,
+                   (2, 1),
+                   padding="same",
+                   )
+        )
+        self.add(LeakyReLU())
+
+        self.add(
+            Conv2D(ALL_BLOCK_POSSIBLE,  # * MOVES_POSSIBLE
+                   (1, 1),
+                   padding="same",
                    )
         )
         self.add(LeakyReLU())
@@ -135,12 +212,32 @@ class Model2048(Sequential):
         return action
 
 
+def normalization(x, min_range, max_range):
+    """
+    Normalization function
+    :param x: List of value to normalize
+    :param min_range: Minimum range for norm
+    :param max_range: Maximum range for norm
+    :return: array normalize
+    """
+
+    x_max = max(x.flatten().tolist())
+    x_min = min(x.flatten().tolist())
+
+    norm = min_range + ((x - x_min) * (max_range - min_range)) / (x_max - x_min)
+
+    return norm
+
+
 def grid_to_input(grid):
     """
     This function transform the grid to a model input
     :param grid: a 2048 grid
     :return: the input for the model
     """
+
+    """
+    # MULTI LAYER PERCEPTION
     # transform to categorical
     grid = to_categorical(np.log2(grid + 1) - 1, 18).tolist()
 
@@ -150,6 +247,16 @@ def grid_to_input(grid):
             del grid[y][x][-1]
 
     return np.array(grid)
+    """
+    # ONE LAYER PERCEPTION
+    grid = grid * 2
+    grid[grid == 0] = 2
+    grid = np.log2(grid)
+    grid -= 1
+    grid = normalization(grid, 0, 1)
+    grid = np.reshape(grid, grid.shape + (1, ))
+
+    return grid
 
 
 # genetic algorithm

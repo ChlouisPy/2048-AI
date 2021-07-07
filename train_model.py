@@ -26,18 +26,18 @@ from model import new_generation, grid_to_input, model_mutation
 
 matplotlib.use('TkAgg')
 
-GUI: bool = True  # if you want see your models train
+GUI: bool = False  # if you want see your models train
 Q_LEARNING_DURING_ENV: bool = False  # enable training during env simulation
 Q_LEARNING_AFTER: bool = True
 GENETIC_ALGORITHM: bool = True
 
 # EPOCHS: int = 10_000
 EPOCHS: int = 10_000
-HISTORY_SIZE: int = 100_000
+HISTORY_SIZE: int = 10_000
 
 # create gui disposition
-Y_MODEL: int = 2
-X_MODEL: int = 3
+Y_MODEL: int = 8
+X_MODEL: int = 12
 TOTAL_MODEL: int = int(Y_MODEL * X_MODEL)
 
 # color map for gui
@@ -122,9 +122,20 @@ def environment(index) -> None:
         list_game[index].grid = new_grid
         list_game[index].score += reward
 
-    list_score[index] = list_game[index].score
     list_max_block[index] = max(list_game[index].grid.flatten().tolist())
+    list_score[index] = list_game[index].score
+    fitness[index] = list_game[index].score * list_max_block[index]
     list_n_action[index] = n_action
+
+    # if the maximum bloc is in the corner
+    if list_game[index].grid[-1][-1] == list_max_block[index]:
+        fitness[index] *= 4
+    elif list_game[index].grid[0][-1] == list_max_block[index]:
+        fitness[index] *= 2
+    elif list_game[index].grid[0][0] == list_max_block[index]:
+        fitness[index] *= 2
+    elif list_game[index].grid[-1][0] == list_max_block[index]:
+        fitness[index] *= 2
 
 
 def gui() -> None:
@@ -186,6 +197,10 @@ def hash_array(array: np.array) -> str:
 
 
 if __name__ == '__main__':
+
+    # init q table
+    Q: dict = {}  # q table
+
     # list for animated graph
     graph_list = []
 
@@ -226,6 +241,7 @@ if __name__ == '__main__':
         list_score: [int] = [0 for _ in range(TOTAL_MODEL)]
         list_max_block: [int] = [0 for _ in range(TOTAL_MODEL)]
         list_n_action: [int] = [0 for _ in range(TOTAL_MODEL)]
+        fitness: list = [0 for _ in range(TOTAL_MODEL)]
 
         # create score for each env
         score: list = [0 for _ in range(TOTAL_MODEL)]
@@ -272,9 +288,8 @@ if __name__ == '__main__':
 
         # reinforce Q learning with all data
         t3 = time.time()
+        X_TRAIN: list = []
         if Q_LEARNING_AFTER:
-
-            Q: dict = {}  # q table
 
             # create a q table with all element in memory
 
@@ -308,12 +323,23 @@ if __name__ == '__main__':
                     X_TRAIN.append(grid_to_input(memory_history_x[i][j]))
                     Y_TRAIN.append(Q[hash_array(memory_history_x[i][j])])
 
-            for model in list_model:
-                model.fit(np.array(X_TRAIN), np.array(Y_TRAIN), verbose=0, epochs=1, batch_size=len(X_TRAIN))
 
+            def train(model_train):
+                with tf.device('/device:cpu:0'):
+                    model_train.fit(np.array(X_TRAIN, dtype=np.float32), np.array(Y_TRAIN, dtype=np.float32), verbose=0)
+
+
+            list_thread: list = []
+
+            for model in list_model:
+                list_thread.append(threading.Thread(target=train, args=(model, )))
+                list_thread[-1].start()
+
+            for thread in list_thread:
+                thread.join()
 
         # reset global history if memory exeded
-        if len(memory_history_x) > HISTORY_SIZE:
+        if sum([len(m) for m in memory_history_x]) > HISTORY_SIZE:
             memory_history_x: list = []
             memory_history_y: list = []
             memory_history_r: list = []
@@ -321,7 +347,7 @@ if __name__ == '__main__':
         t3 = time.time() - t3
 
         # print stats
-        print(f"------ {epoch + 1} ------")
+        print(f"\n\n--------------- {epoch + 1} ---------------")
         print(f"Scores :")
         print(f"\t- Average:             {round(sum(list_score) / len(list_score), 1)}")
         print(f"\t- Maximum:             {max(list_score)}")
@@ -339,4 +365,5 @@ if __name__ == '__main__':
         print(f"\t- Minimum action:      {max(list_n_action)}")
         print(f"\t- Maximum action:      {min(list_n_action)}")
         print(f"\t-----------------------")
-        print(f"\t Grid in memory:       {len(memory_history_x)}")
+        print(f"\t- Grid in memory:       {sum([len(m) for m in memory_history_x])}")
+        print(f"\t- Grid for train:       {len(X_TRAIN)}")
