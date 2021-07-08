@@ -36,8 +36,8 @@ EPOCHS: int = 10_000
 HISTORY_SIZE: int = 10_000
 
 # create gui disposition
-Y_MODEL: int = 8
-X_MODEL: int = 12
+Y_MODEL: int = 4
+X_MODEL: int = 6
 TOTAL_MODEL: int = int(Y_MODEL * X_MODEL)
 
 # color map for gui

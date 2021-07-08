@@ -7,6 +7,6 @@ model ✓
 <br>
 train model ✓
 <br>
-train q model ❌
+train q model ✓
 <br>
 use model ❌

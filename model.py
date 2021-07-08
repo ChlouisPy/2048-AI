@@ -11,6 +11,7 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Flatten, Conv2D, LeakyReLU, Dropout
 from game import MOVES_POSSIBLE, ALL_BLOCK_POSSIBLE, GRID_SIZE_X, GRID_SIZE_Y
 from tensorflow.keras.utils import to_categorical
+from copy import deepcopy
 
 
 EPS: float = 0.4  # probability of playing a random move
@@ -83,7 +84,7 @@ class Model2048(Sequential):
         self.compile(optimizer="adam", loss="huber_loss")
 
         """
-        """
+
         self.add(
             Conv2D(ALL_BLOCK_POSSIBLE * MOVES_POSSIBLE,
                    (1, 2),
@@ -120,8 +121,9 @@ class Model2048(Sequential):
 
         self.add(Dense(4, activation="softmax"))
 
-        self.compile(optimizer="adam", loss="huber_loss")"""
+        self.compile(optimizer="RMSprop", loss="huber_loss")
 
+        """
         self.add(
             Conv2D(ALL_BLOCK_POSSIBLE * MOVES_POSSIBLE,
                    (1, 2),
@@ -159,7 +161,7 @@ class Model2048(Sequential):
         self.add(Dense(4, activation="softmax"))
 
         self.compile(optimizer="adam", loss="huber_loss")
-
+        """
     def save_model(self, path: str) -> None:
         """
         This function save the model as a h5 file
@@ -196,9 +198,9 @@ class Model2048(Sequential):
         :param eps: probability of playing a random move
         :return: the action take
         """
-        if random.uniform(0, 1) < eps:
+        if random.random() < eps:
             # take random action
-            action = random.choice(LIST_ACTIONS)
+            action = deepcopy(random.choice(LIST_ACTIONS))
 
         else:
             # let model choose a action
@@ -236,7 +238,7 @@ def grid_to_input(grid):
     :return: the input for the model
     """
 
-    """
+
     # MULTI LAYER PERCEPTION
     # transform to categorical
     grid = to_categorical(np.log2(grid + 1) - 1, 18).tolist()
@@ -247,7 +249,8 @@ def grid_to_input(grid):
             del grid[y][x][-1]
 
     return np.array(grid)
-    """
+
+"""
     # ONE LAYER PERCEPTION
     grid = grid * 2
     grid[grid == 0] = 2
@@ -257,7 +260,7 @@ def grid_to_input(grid):
     grid = np.reshape(grid, grid.shape + (1, ))
 
     return grid
-
+"""
 
 # genetic algorithm
 
