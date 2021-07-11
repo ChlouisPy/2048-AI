@@ -11,4 +11,4 @@ is that there are too many strategies, so the genetic
 algorithms can't agree. 
 
 ## Use model :
-Does not use deep learning just brute force the game
+Does not use deep learning just brute force the game (and it doesn't work)
