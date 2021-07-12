@@ -12,3 +12,6 @@ algorithms can't agree.
 
 ## Use model :
 Does not use deep learning just brute force the game (and it doesn't work)
+
+## Result : 
+Very bad 
